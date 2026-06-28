@@ -75,8 +75,9 @@ private func impactMedium() {
 struct ContentView: View {
     @State private var selectedDay = 6
     @State private var events: [CalendarEvent] = [
-        .init(title: "Daily stand up", startMinute: 9 * 60,  durationMinutes: 150, color: Color(hex: "1d639d")),
-        .init(title: "Go for a ride",  startMinute: 20 * 60, durationMinutes: 30,  color: Color(hex: "157a68"))
+        .init(title: "Make pasta",     startMinute: 9  * 60, durationMinutes: 150, color: Color(hex: "1d639d")),
+        .init(title: "Go for a ride",  startMinute: 20 * 60, durationMinutes: 60,  color: Color(hex: "5f6a38")),
+        .init(title: "Design review",     startMinute: 13 * 60, durationMinutes: 60,  color: Color(hex: "81372f"))
     ]
 
     private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
@@ -105,9 +106,9 @@ struct ContentView: View {
                 .foregroundColor(Color(hex: "2a2a2a"))
                 .padding(.horizontal, 20)
                 .frame(height: 40)
-                .glassEffect(.regular, in: Capsule())
             }
             .buttonStyle(.plain)
+            .glassEffect(.regular, in: Capsule())
             Spacer()
             Image("avatar")
                 .resizable()
