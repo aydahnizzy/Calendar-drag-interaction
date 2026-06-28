@@ -34,7 +34,7 @@ private enum Layout {
     static let timeColumnWidth: CGFloat = 60
     static let slotCount: Int           = 24
     static let snapInterval: Int        = 15
-    static let columnGap: CGFloat       = 4
+    static let columnGap: CGFloat       = 16
 }
 
 // MARK: - Color helper
@@ -105,8 +105,7 @@ struct ContentView: View {
                 .foregroundColor(Color(hex: "2a2a2a"))
                 .padding(.horizontal, 20)
                 .frame(height: 40)
-                .background(Color(hex: "f5f5f5"))
-                .clipShape(Capsule())
+                .glassEffect(.regular, in: Capsule())
             }
             .buttonStyle(.plain)
             Spacer()
@@ -171,24 +170,16 @@ struct TimelineView: View {
         return event.id == draggingID ? base + liveOffset : base
     }
 
-    // Snapped start minute — used only for overlap detection and on-commit
-    private func snappedStart(for event: CalendarEvent) -> Int {
-        guard event.id == draggingID else { return event.startMinute }
-        let delta    = Int(liveOffset / Layout.ptPerMinute)
-        let snapped  = (delta / Layout.snapInterval) * Layout.snapInterval
-        let maxStart = Layout.slotCount * Layout.minutesPerSlot - event.durationMinutes
-        return max(0, min(maxStart, event.startMinute + snapped))
-    }
-
-    // (column, totalColumns) for an event given current overlap state
+    // (column, totalColumns) for an event given current overlap state.
+    // Compares in point space (CGFloat) so the split triggers the exact pixel
+    // edges touch — no integer-minute rounding delay.
     private func colInfo(for event: CalendarEvent) -> (col: Int, total: Int) {
-        let eStart = snappedStart(for: event)
-        let eEnd   = eStart + event.durationMinutes
+        let eTop    = yPos(for: event)
+        let eBottom = eTop + CGFloat(event.durationMinutes) * Layout.ptPerMinute
         for other in events where other.id != event.id {
-            let oStart = snappedStart(for: other)
-            let oEnd   = oStart + other.durationMinutes
-            guard eStart < oEnd && oStart < eEnd else { continue }
-            // Stable column assignment — lower UUID string always goes left
+            let oTop    = yPos(for: other)
+            let oBottom = oTop + CGFloat(other.durationMinutes) * Layout.ptPerMinute
+            guard eTop < oBottom && oTop < eBottom else { continue }
             return (col: event.id.uuidString < other.id.uuidString ? 0 : 1, total: 2)
         }
         return (col: 0, total: 1)
@@ -336,10 +327,11 @@ struct EventBlock: View {
     let onDragEnded: (CGFloat) -> Void
 
     @State private var lastSnapBoundary: Int = 0
+    @State private var rubberX: CGFloat = 0
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(event.color)
                 .shadow(
                     color: isDragging ? .black.opacity(0.22) : .clear,
@@ -352,21 +344,37 @@ struct EventBlock: View {
                     .lineLimit(2)
                 Spacer()
                 if !isCompact {
-                    Text(event.durationLabel)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
+//                    Text(event.durationLabel)
+//                        .font(.system(size: 12, weight: .medium))
+//                        .foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
         }
+        // Rubber band: resists horizontal pull and springs back on release.
+        // Suppressed when paired so split blocks don't push into each other.
+        .offset(x: isCompact ? 0 : rubberX)
+        .onChange(of: isCompact) { _, compact in
+            if compact {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { rubberX = 0 }
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 5, coordinateSpace: .global)
                 .onChanged { value in
-                    onDragChanged(value.translation.height)
+                    let dy = value.translation.height
+                    let dx = value.translation.width
+                    onDragChanged(dy)
+
+                    // Horizontal rubber band: dampened resistance, caps at ±18pt
+                    if !isCompact {
+                        let rubber = dx / (1 + abs(dx) * 0.03)
+                        rubberX = min(50, max(-50, rubber))
+                    }
+
                     // Haptic every time we cross a 15-min snap boundary
-                    let boundary = Int(value.translation.height / Layout.ptPerMinute)
-                                 / Layout.snapInterval
+                    let boundary = Int(dy / Layout.ptPerMinute) / Layout.snapInterval
                     if boundary != lastSnapBoundary {
                         lastSnapBoundary = boundary
                         impact()
@@ -375,6 +383,9 @@ struct EventBlock: View {
                 .onEnded { value in
                     onDragEnded(value.translation.height)
                     lastSnapBoundary = 0
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                        rubberX = 0
+                    }
                 }
         )
     }
