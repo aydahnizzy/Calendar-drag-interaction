@@ -1,5 +1,12 @@
 # SwiftUI Calendar Drag Interaction
 
+## Prototype video
+
+<video src="IMG_3899.mov" controls loop muted playsinline width="400">
+  Your browser does not support the video tag.
+</video>
+
+
 A SwiftUI calendar view demonstrating fluid drag-and-drop for event blocks on iOS 18+. Events snap to 15-minute slots, display side-by-side when they overlap during a drag, and respond with haptic feedback at each time boundary.
 
 ---
@@ -9,6 +16,7 @@ A SwiftUI calendar view demonstrating fluid drag-and-drop for event blocks on iO
 Built from debugging a calendar event drag-and-drop inside a `ScrollView` on iOS 18+.
 
 ---
+
 
 ## The Six Rules
 
